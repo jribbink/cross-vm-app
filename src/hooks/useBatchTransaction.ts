@@ -1,6 +1,7 @@
 import * as fcl from '@onflow/fcl'
 import {parseAbi, encodeFunctionData} from 'viem'
 import {useState} from 'react'
+import {useAccount} from "wagmi";
 
 // Define the interface for each EVM call.
 export interface EVMBatchCall {
@@ -28,10 +29,18 @@ export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; v
   })
 }
 
-// The Cadence transaction as a string.
-// It expects a parameter of type [{String: String}] and loops through the calls to execute them atomically.
-const cadenceTx = `
-import EVM from 0x8c5303eaa26202d6
+const EVM_CONTRACT_ADDRESSES = {
+  testnet: "0x8c5303eaa26202d6",
+  mainnet: "0xe467b9dd11fa00df",
+}
+
+// Takes a chain id and returns the cadence tx with addresses set
+const getCadenceBatchTransaction = (chainId: number) => {
+  const isMainnet = chainId === 0x747
+  const evmAddress = isMainnet ? EVM_CONTRACT_ADDRESSES.mainnet : EVM_CONTRACT_ADDRESSES.testnet
+
+  return `
+import EVM from ${evmAddress}
 
 transaction(calls: [{String: String}]) {
 
@@ -65,9 +74,18 @@ transaction(calls: [{String: String}]) {
     }
 }
 `
+}
 
 // Custom hook that returns a function to send a batch transaction
 export function useBatchTransaction() {
+  const { chain } = useAccount()
+
+  if (!chain) {
+    throw new Error("No chain provided.")
+  }
+
+  const cadenceTx = getCadenceBatchTransaction(chain.id)
+
   const [isPending, setIsPending] = useState<boolean>(false)
   const [isError, setIsError] = useState<boolean>(false)
   const [txHashes, setTxHashes] = useState<string[]>([])
