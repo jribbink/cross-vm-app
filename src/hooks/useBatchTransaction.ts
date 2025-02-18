@@ -68,11 +68,14 @@ transaction(calls: [{String: String}]) {
 
 // Custom hook that returns a function to send a batch transaction
 export function useBatchTransaction() {
-  const [txStatus, setTxStatus] = useState<string>('')
+  const [isPending, setIsPending] = useState<boolean>(false)
+  const [isError, setIsError] = useState<boolean>(false)
+  const [txHashes, setTxHashes] = useState<string[]>([])
 
   async function sendBatchTransaction(calls: EVMBatchCall[]) {
     const encodedCalls = encodeCalls(calls)
     try {
+      setIsPending(true)
       const txId = await fcl.mutate({
         cadence: cadenceTx,
         args: (arg, t) => [
@@ -84,17 +87,24 @@ export function useBatchTransaction() {
         authorizations: [fcl.authz],
         limit: 100,
       })
-      setTxStatus(`Transaction submitted, ID: ${txId}`)
-      console.log("Transaction submitted, ID:", txId)
 
-      const txResult = await fcl.tx(txId).onceSealed()
-      setTxStatus(`Transaction sealed: ${JSON.stringify(txResult)}`)
-      console.log("Transaction sealed:", txResult)
+      const txResult = await fcl.tx(txId).onceExecuted()
+
+      // Filter for TransactionExecuted events
+      const executedEvents = txResult.events.filter((e: any) =>
+        e.type.includes("TransactionExecuted")
+      )
+
+      // Extract the transaction hashes from each event's data
+      const txHashes = executedEvents.map((e: any) => e.data.txHash)
+
+      setTxHashes(txHashes)
+      setIsPending(false)
     } catch (error: any) {
-      setTxStatus(`Transaction error: ${error.message}`)
-      console.error("Transaction error:", error)
+      setIsError(true)
+      setIsPending(false)
     }
   }
 
-  return {sendBatchTransaction, txStatus}
+  return {sendBatchTransaction, isPending, isError, txHashes}
 }
