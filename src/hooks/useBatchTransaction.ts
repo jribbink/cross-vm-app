@@ -80,17 +80,17 @@ transaction(calls: [{String: String}]) {
 export function useBatchTransaction() {
   const { chain } = useAccount()
 
-  if (!chain) {
-    throw new Error("No chain provided.")
-  }
-
-  const cadenceTx = getCadenceBatchTransaction(chain.id)
+  const cadenceTx = chain?.id ? getCadenceBatchTransaction(chain.id) : null
 
   const [isPending, setIsPending] = useState<boolean>(false)
   const [isError, setIsError] = useState<boolean>(false)
   const [txHashes, setTxHashes] = useState<string[]>([])
 
   async function sendBatchTransaction(calls: EVMBatchCall[]) {
+    if (!cadenceTx) {
+      throw new Error("No current chain found")
+    }
+
     const encodedCalls = encodeCalls(calls)
     try {
       setIsPending(true)
