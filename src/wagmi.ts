@@ -19,12 +19,11 @@ const connectors = connectorsForWallets([
     groupName: "Recommended",
     "wallets": [
       // TODO: conflicts with FCL auth
-      /*
+      
       flowWallet({
         user: fcl.currentUser,
         config: fcl.config
       }) as any,
-       */
       walletConnectWallet as any
     ],
   }
