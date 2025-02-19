@@ -42,7 +42,7 @@ const getCadenceBatchTransaction = (chainId: number) => {
   return `
 import EVM from ${evmAddress}
 
-transaction(calls: [{String: String}]) {
+transaction(calls: [{String: String}], mustPass: Bool) {
 
     let coa: auth(EVM.Call) & EVM.CadenceOwnedAccount
 
@@ -64,12 +64,15 @@ transaction(calls: [{String: String}]) {
                 gasLimit: 15_000_000,
                 value: EVM.Balance(attoflow: 0)
             )
-            assert(
-                result.status == EVM.Status.successful,
-                message: "Call to ".concat(addrStr)
-                          .concat(" failed: ")
-                          .concat(result.errorMessage)
-            )
+            
+            if mustPass {
+                assert(
+                  result.status == EVM.Status.successful,
+                  message: "Call to ".concat(addrStr)
+                    .concat(" failed: ")
+                    .concat(result.errorMessage)
+                )
+            }
         }
     }
 }
