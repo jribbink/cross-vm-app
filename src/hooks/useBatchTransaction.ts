@@ -144,7 +144,9 @@ export function useBatchTransaction() {
           }
         } else {
           return {
-            status: "skipped"
+            hash: null,
+            status: "skipped",
+            errorMessage: null,
           }
         }
       })
