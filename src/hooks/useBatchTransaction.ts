@@ -61,7 +61,7 @@ transaction(calls: [{String: String}], mustPass: Bool) {
             let valueStr = call["value"]!
             let targetAddr = EVM.addressFromString(addrStr)
             let callData: [UInt8] = dataStr.decodeHex()
-            let valueAttoflow = UInt64(valueStr)
+            let valueAttoflow = UInt64.fromString(valueStr)
             let result = self.coa.call(
                 to: targetAddr,
                 data: callData,
