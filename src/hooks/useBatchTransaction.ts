@@ -9,7 +9,7 @@ export interface EVMBatchCall {
   abi: any;               // The contract ABI fragment (as JSON)
   functionName: string;   // The name of the function to call
   args: any[];            // The function arguments
-  value: number;          // The value to send with the call
+  value?: number;          // The value to send with the call
 }
 
 // Helper to encode our calls using viem.
