@@ -12,6 +12,12 @@ export interface EVMBatchCall {
   value?: number;          // The value to send with the call
 }
 
+export interface CallOutcome {
+  status: 'passed' | 'failed' | 'skipped';
+  hash?: string;
+  errorMessage?: string;
+}
+
 // Helper to encode our calls using viem.
 // Returns an array of objects with keys "address" and "data" (hex-encoded string without the "0x" prefix).
 export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; value: string }>> {
@@ -91,7 +97,8 @@ export function useBatchTransaction() {
 
   const [isPending, setIsPending] = useState<boolean>(false)
   const [isError, setIsError] = useState<boolean>(false)
-  const [txHashes, setTxHashes] = useState<string[]>([])
+  const [txId, setTxId] = useState<string>("")
+  const [results, setResults] = useState<CallOutcome[]>([])
 
   async function sendBatchTransaction(calls: EVMBatchCall[]) {
     if (!cadenceTx) {
@@ -113,6 +120,8 @@ export function useBatchTransaction() {
         limit: 100,
       })
 
+      setTxId(txId)
+
       const txResult = await fcl.tx(txId).onceExecuted()
 
       // Filter for TransactionExecuted events
@@ -123,7 +132,24 @@ export function useBatchTransaction() {
       // Extract the transaction hashes from each event's data
       const txHashes = executedEvents.map((e: any) => e.data.txHash)
 
-      setTxHashes(txHashes)
+      // Build a full outcomes array for every call.
+      // For any call index where no event exists, mark it as "skipped".
+      const outcomes: CallOutcome[] = calls.map((_, index) => {
+        const outcomeFromEvent = executedEvents.find((o: any) => o.index === index)
+        if (outcomeFromEvent) {
+          return {
+            hash: outcomeFromEvent.txHash,
+            status: outcomeFromEvent.statusCode === "0" ? "passed" : "failed",
+            errorMessage: outcomeFromEvent.errorMessage
+          }
+        } else {
+          return {
+            status: "skipped"
+          }
+        }
+      })
+
+      setResults(outcomes)
       setIsPending(false)
     } catch (error: any) {
       setIsError(true)
@@ -131,5 +157,5 @@ export function useBatchTransaction() {
     }
   }
 
-  return {sendBatchTransaction, isPending, isError, txHashes}
+  return {sendBatchTransaction, isPending, isError, txId, results}
 }

@@ -11,7 +11,7 @@ import {EVMBatchCall, useBatchTransaction} from "../hooks/useBatchTransaction";
 function Page() {
   const coa = useAccount();
   const [flowAddress, setFlowAddress] = useState<string | null>(null);
-  const {sendBatchTransaction, txStatus} = useBatchTransaction();
+  const {sendBatchTransaction, isPending, isError, txId, results} = useBatchTransaction();
 
   useEffect(() => {
     const unsub = fcl.currentUser().subscribe((user: CurrentUser) => {
