@@ -11,7 +11,7 @@ import {EVMBatchCall, useBatchTransaction} from "../hooks/useBatchTransaction";
 function Page() {
   const coa = useAccount();
   const [flowAddress, setFlowAddress] = useState<string | null>(null);
-  const {sendBatchTransaction, txStatus} = useBatchTransaction();
+  const {sendBatchTransaction} = useBatchTransaction();
 
   useEffect(() => {
     const unsub = fcl.currentUser().subscribe((user: CurrentUser) => {
@@ -76,7 +76,7 @@ function Page() {
       <button onClick={() => sendBatchTransaction(calls)}>
         Send Batch Transaction Example
       </button>
-      {txStatus && <p>{txStatus}</p>}
+      {/*txStatus && <p>{txStatus}</p>*/}
       <CodeEvaluator />
     </>
   );
