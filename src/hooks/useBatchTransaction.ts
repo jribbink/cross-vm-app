@@ -9,6 +9,13 @@ export interface EVMBatchCall {
   abi: any;               // The contract ABI fragment (as JSON)
   functionName: string;   // The name of the function to call
   args: any[];            // The function arguments
+  value?: number;          // The value to send with the call
+}
+
+export interface CallOutcome {
+  status: 'passed' | 'failed' | 'skipped';
+  hash?: string;
+  errorMessage?: string;
 }
 
 // Helper to encode our calls using viem.
@@ -25,6 +32,7 @@ export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; v
     return [
       { key: "address", value: call.address },
       { key: "data", value: encodedData },
+      { key: "value",  value: call.value?.toString() ?? "0" },
     ]
   })
 }
@@ -42,7 +50,7 @@ const getCadenceBatchTransaction = (chainId: number) => {
   return `
 import EVM from ${evmAddress}
 
-transaction(calls: [{String: String}]) {
+transaction(calls: [{String: String}], mustPass: Bool) {
 
     let coa: auth(EVM.Call) & EVM.CadenceOwnedAccount
 
@@ -53,23 +61,28 @@ transaction(calls: [{String: String}]) {
     }
 
     execute {
-        for call in calls {
+        for i, call in calls {
             let addrStr = call["address"]!
             let dataStr = call["data"]!
+            let valueStr = call["value"]!
             let targetAddr = EVM.addressFromString(addrStr)
             let callData: [UInt8] = dataStr.decodeHex()
+            let valueAttoflow = UInt.fromString(valueStr) ?? panic("Could not construct UInt value from ".concat(valueStr))
             let result = self.coa.call(
                 to: targetAddr,
                 data: callData,
                 gasLimit: 15_000_000,
-                value: EVM.Balance(attoflow: 0)
+                value: EVM.Balance(attoflow: valueAttoflow)
             )
-            assert(
-                result.status == EVM.Status.successful,
-                message: "Call to ".concat(addrStr)
-                          .concat(" failed: ")
-                          .concat(result.errorMessage)
-            )
+            
+            if mustPass {
+                assert(
+                  result.status == EVM.Status.successful,
+                  message: "Call index ".concat(i.toString()).concat(" to ").concat(addrStr)
+                    .concat(" with calldata ").concat(dataStr).concat(" failed: ")
+                    .concat(result.errorMessage)
+                )
+            }
         }
     }
 }
@@ -80,15 +93,16 @@ transaction(calls: [{String: String}]) {
 export function useBatchTransaction() {
   const { chain } = useAccount()
 
-  const cadenceTx = chain?.id ? getCadenceBatchTransaction(chain?.id) : null
+  const cadenceTx = chain?.id ? getCadenceBatchTransaction(chain.id) : null
 
   const [isPending, setIsPending] = useState<boolean>(false)
   const [isError, setIsError] = useState<boolean>(false)
-  const [txHashes, setTxHashes] = useState<string[]>([])
+  const [txId, setTxId] = useState<string>("")
+  const [results, setResults] = useState<CallOutcome[]>([])
 
   async function sendBatchTransaction(calls: EVMBatchCall[]) {
     if (!cadenceTx) {
-      throw new Error("Chain ID not found")
+      throw new Error("No current chain found")
     }
 
     const encodedCalls = encodeCalls(calls)
@@ -106,7 +120,27 @@ export function useBatchTransaction() {
         limit: 100,
       })
 
-      const txResult = await fcl.tx(txId).onceExecuted()
+      setTxId(txId)
+
+      // The transaction may revert if mustPass=true and one of the calls fails,
+      // so we catch that error specifically.
+      let txResult
+      try {
+        txResult = await fcl.tx(txId).onceExecuted()
+      } catch (txError) {
+        // If we land here, the transaction likely reverted.
+        // We can return partial or "failed" outcomes for all calls.
+        setIsError(true)
+        setResults(
+          calls.map(() => ({
+            status: "failed" as const,
+            hash: undefined,
+            errorMessage: "Transaction reverted"
+          }))
+        )
+        setIsPending(false)
+        return
+      }
 
       // Filter for TransactionExecuted events
       const executedEvents = txResult.events.filter((e: any) =>
@@ -116,7 +150,24 @@ export function useBatchTransaction() {
       // Extract the transaction hashes from each event's data
       const txHashes = executedEvents.map((e: any) => e.data.txHash)
 
-      setTxHashes(txHashes)
+      // Build a full outcomes array for every call.
+      // For any call index where no event exists, mark it as "skipped".
+      const outcomes: CallOutcome[] = calls.map((_, index) => {
+        const outcomeFromEvent = executedEvents.find((o: any) => o.index === index)?.data
+        if (outcomeFromEvent) {
+          return {
+            hash: outcomeFromEvent.txHash,
+            status: outcomeFromEvent.statusCode === "0" ? "passed" : "failed",
+            errorMessage: outcomeFromEvent.errorMessage
+          }
+        } else {
+          return {
+            status: "skipped",
+          }
+        }
+      })
+
+      setResults(outcomes)
       setIsPending(false)
     } catch (error: any) {
       setIsError(true)
@@ -124,5 +175,5 @@ export function useBatchTransaction() {
     }
   }
 
-  return {sendBatchTransaction, isPending, isError, txHashes}
+  return {sendBatchTransaction, isPending, isError, txId, results}
 }
