@@ -122,7 +122,25 @@ export function useBatchTransaction() {
 
       setTxId(txId)
 
-      const txResult = await fcl.tx(txId).onceExecuted()
+      // The transaction may revert if mustPass=true and one of the calls fails,
+      // so we catch that error specifically.
+      let txResult
+      try {
+        txResult = await fcl.tx(txId).onceExecuted()
+      } catch (txError) {
+        // If we land here, the transaction likely reverted.
+        // We can return partial or "failed" outcomes for all calls.
+        setIsError(true)
+        setResults(
+          calls.map(() => ({
+            status: "failed" as const,
+            hash: undefined,
+            errorMessage: "Transaction reverted"
+          }))
+        )
+        setIsPending(false)
+        return
+      }
 
       // Filter for TransactionExecuted events
       const executedEvents = txResult.events.filter((e: any) =>
