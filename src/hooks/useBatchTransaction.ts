@@ -55,7 +55,7 @@ transaction(calls: [{String: String}], mustPass: Bool) {
     }
 
     execute {
-        for call in calls {
+        for i, call in calls {
             let addrStr = call["address"]!
             let dataStr = call["data"]!
             let valueStr = call["value"]!
