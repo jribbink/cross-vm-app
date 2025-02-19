@@ -78,8 +78,8 @@ transaction(calls: [{String: String}], mustPass: Bool) {
             if mustPass {
                 assert(
                   result.status == EVM.Status.successful,
-                  message: "Call to ".concat(addrStr)
-                    .concat(" failed: ")
+                  message: "Call index ".concat(i.toString()).concat(" to ").concat(addrStr)
+                    .concat(" with calldata ").concat(dataStr).concat(" failed: ")
                     .concat(result.errorMessage)
                 )
             }
