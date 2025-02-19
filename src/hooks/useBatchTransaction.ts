@@ -26,7 +26,7 @@ export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; v
     return [
       { key: "address", value: call.address },
       { key: "data", value: encodedData },
-      { key: "value",  value: call.value.toString() },
+      { key: "value",  value: call.value?.toString() ?? 0 },
     ]
   })
 }
