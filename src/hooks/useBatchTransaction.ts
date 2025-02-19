@@ -9,6 +9,7 @@ export interface EVMBatchCall {
   abi: any;               // The contract ABI fragment (as JSON)
   functionName: string;   // The name of the function to call
   args: any[];            // The function arguments
+  value: number;          // The value to send with the call
 }
 
 // Helper to encode our calls using viem.
@@ -25,6 +26,7 @@ export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; v
     return [
       { key: "address", value: call.address },
       { key: "data", value: encodedData },
+      { key: "value",  value: call.value.toString() },
     ]
   })
 }
@@ -56,13 +58,15 @@ transaction(calls: [{String: String}], mustPass: Bool) {
         for call in calls {
             let addrStr = call["address"]!
             let dataStr = call["data"]!
+            let valueStr = call["value"]!
             let targetAddr = EVM.addressFromString(addrStr)
             let callData: [UInt8] = dataStr.decodeHex()
+            let valueAttoflow = UInt64(valueStr)
             let result = self.coa.call(
                 to: targetAddr,
                 data: callData,
                 gasLimit: 15_000_000,
-                value: EVM.Balance(attoflow: 0)
+                value: EVM.Balance(attoflow: valueAttoflow)
             )
             
             if mustPass {
