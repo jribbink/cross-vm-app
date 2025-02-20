@@ -15,9 +15,7 @@ function Page() {
 
   useEffect(() => {
     const unsub = fcl.currentUser().subscribe((user: CurrentUser) => {
-      if (user.addr) {
-        setFlowAddress(user.addr);
-      }
+      setFlowAddress(user.addr);
     });
     return () => unsub();
   }, []);
