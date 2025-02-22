@@ -3,7 +3,6 @@
 import { flowWallet, walletConnectWallet } from '@onflow/fcl-rainbowkit-adapter';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import {
-  flowMainnet,
   flowTestnet,
 } from 'wagmi/chains';
 import * as fcl from '@onflow/fcl';
@@ -34,11 +33,11 @@ const connectors = connectorsForWallets([
 
 export const config = createConfig({
   chains: [
-    flowMainnet
+    flowTestnet
   ],
   connectors,
   ssr: true,
   transports: {
-    [flowMainnet.id]: http(),
+    [flowTestnet.id]: http(),
   }
 });
