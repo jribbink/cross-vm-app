@@ -1,15 +1,16 @@
 import * as fcl from '@onflow/fcl'
-import {parseAbi, encodeFunctionData} from 'viem'
+import {Abi, encodeFunctionData} from 'viem'
 import {useState} from 'react'
 import {useAccount} from "wagmi";
 
 // Define the interface for each EVM call.
 export interface EVMBatchCall {
-  address: string;        // The target EVM contract address (as a string)
-  abi: any;               // The contract ABI fragment (as JSON)
-  functionName: string;   // The name of the function to call
-  args: any[];            // The function arguments
-  value?: number;          // The value to send with the call
+  address: string;            // The target EVM contract address (as a string)
+  abi: Abi;                   // The contract ABI fragment (as JSON)
+  functionName: string;       // The name of the function to call
+  args?: readonly unknown[];  // The function arguments
+  gasLimit?: bigint;           // The gas limit for the call
+  value?: bigint;             // The value to send with the call
 }
 
 export interface CallOutcome {
@@ -22,19 +23,19 @@ export interface CallOutcome {
 // Returns an array of objects with keys "address" and "data" (hex-encoded string without the "0x" prefix).
 export function encodeCalls(calls: EVMBatchCall[]): Array<Array<{ key: string; value: string }>> {
   return calls.map(call => {
-    const parsedAbi = parseAbi(call.abi)
     const encodedData = encodeFunctionData({
-      abi: parsedAbi,
+      abi: call.abi,
       functionName: call.functionName,
       args: call.args,
     })
 
     return [
-      { key: "address", value: call.address },
-      { key: "data", value: encodedData },
+      { key: "to", value: call.address },
+      { key: "data", value: fcl.sansPrefix(encodedData) ?? "" },
+      { key: "gasLimit", value: call.gasLimit?.toString() ?? "15000000" },
       { key: "value",  value: call.value?.toString() ?? "0" },
     ]
-  })
+  }) as any
 }
 
 const EVM_CONTRACT_ADDRESSES = {
@@ -50,36 +51,35 @@ const getCadenceBatchTransaction = (chainId: number) => {
   return `
 import EVM from ${evmAddress}
 
-transaction(calls: [{String: String}], mustPass: Bool) {
+transaction(calls: [{String: AnyStruct}], mustPass: Bool) {
 
-    let coa: auth(EVM.Call) & EVM.CadenceOwnedAccount
+    let coa: auth(EVM.Call) &EVM.CadenceOwnedAccount
 
     prepare(signer: auth(BorrowValue) & Account) {
         let storagePath = /storage/evm
-        self.coa = signer.storage.borrow<auth(EVM.Call) & EVM.CadenceOwnedAccount>(from: storagePath)
+        self.coa = signer.storage.borrow<auth(EVM.Call) &EVM.CadenceOwnedAccount>(from: storagePath)
             ?? panic("No CadenceOwnedAccount (COA) found at ".concat(storagePath.toString()))
     }
 
     execute {
         for i, call in calls {
-            let addrStr = call["address"]!
-            let dataStr = call["data"]!
-            let valueStr = call["value"]!
-            let targetAddr = EVM.addressFromString(addrStr)
-            let callData: [UInt8] = dataStr.decodeHex()
-            let valueAttoflow = UInt.fromString(valueStr) ?? panic("Could not construct UInt value from ".concat(valueStr))
+            let to = call["to"] as! String
+            let data = call["data"] as! String
+            let gasLimit = call["gasLimit"] as! UInt64
+            let value = call["value"] as! UInt
+
             let result = self.coa.call(
-                to: targetAddr,
-                data: callData,
-                gasLimit: 15_000_000,
-                value: EVM.Balance(attoflow: valueAttoflow)
+                to: EVM.addressFromString(to),
+                data: data.decodeHex(),
+                gasLimit: gasLimit,
+                value: EVM.Balance(attoflow: value)
             )
             
             if mustPass {
                 assert(
                   result.status == EVM.Status.successful,
-                  message: "Call index ".concat(i.toString()).concat(" to ").concat(addrStr)
-                    .concat(" with calldata ").concat(dataStr).concat(" failed: ")
+                  message: "Call index ".concat(i.toString()).concat(" to ").concat(to)
+                    .concat(" with calldata ").concat(data).concat(" failed: ")
                     .concat(result.errorMessage)
                 )
             }
@@ -100,7 +100,7 @@ export function useBatchTransaction() {
   const [txId, setTxId] = useState<string>("")
   const [results, setResults] = useState<CallOutcome[]>([])
 
-  async function sendBatchTransaction(calls: EVMBatchCall[]) {
+  async function sendBatchTransaction(calls: EVMBatchCall[], mustPass: boolean = true) {
     if (!cadenceTx) {
       throw new Error("No current chain found")
     }
@@ -108,16 +108,21 @@ export function useBatchTransaction() {
     const encodedCalls = encodeCalls(calls)
     try {
       setIsPending(true)
+
       const txId = await fcl.mutate({
         cadence: cadenceTx,
         args: (arg, t) => [
           // Pass encodedCalls as an array of dictionaries with keys (String, String)
-          arg(encodedCalls, t.Array(t.Dictionary({ key: t.String, value: t.String })))
+          arg(encodedCalls, t.Array(t.Dictionary([
+            { key: t.String, value: t.String },
+            { key: t.String, value: t.String },
+            { key: t.String, value: t.UInt64 },
+            { key: t.String, value: t.UInt },
+          ] as any))),
+          // Pass mustPass=true to revert the entire transaction if any call fails
+          arg(true, t.Bool),
         ],
-        proposer: fcl.authz,
-        payer: fcl.authz,
-        authorizations: [fcl.authz],
-        limit: 100,
+        limit: 9999,
       })
 
       setTxId(txId)
