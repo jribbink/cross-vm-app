@@ -3,15 +3,17 @@
 import { flowWallet, walletConnectWallet } from '@onflow/fcl-rainbowkit-adapter';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import {
+  flowMainnet,
   flowTestnet,
 } from 'wagmi/chains';
 import * as fcl from '@onflow/fcl';
 import { createConfig, http } from 'wagmi';
 
 fcl.config({
-  "accessNode.api": "https://rest-testnet.onflow.org",
-  "discovery.wallet": "https://fcl-discovery.onflow.org/testnet/authn",
+  "accessNode.api": "https://rest-mainnet.onflow.org",
+  "discovery.wallet": "https://fcl-discovery.onflow.org/mainnet/authn",
   "walletconnect.projectId": "9b70cfa398b2355a5eb9b1cf99f4a981",
+  "walletconnect.disableNotifications": true,
 })
 
 const connectors = connectorsForWallets([
@@ -32,11 +34,11 @@ const connectors = connectorsForWallets([
 
 export const config = createConfig({
   chains: [
-    flowTestnet
+    flowMainnet
   ],
   connectors,
   ssr: true,
   transports: {
-    [flowTestnet.id]: http(),
+    [flowMainnet.id]: http(),
   }
 });
