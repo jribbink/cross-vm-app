@@ -72,6 +72,10 @@ This integration facilitates progressive adoption of Cadence in Ethereum applica
 
 Read more about this proposal in the [Cross VM FLIP](https://github.com/onflow/flips/blob/b7ec911e8f218364f8d2b9057ba1d4806eb6085f/application/20241223-fcl-ethereum-provider.md).
 
+## EVM Batch Transactions with Cadence
+
+To learn more about batched EVM transactions using Cadence, [read the guide](https://developers.flow.com/evm/cadence/batched-evm-transactions).
+
 ## Development
 
 The project uses TypeScript for type safety and Next.js App Router for routing. The main components are:
