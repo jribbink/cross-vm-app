@@ -4,6 +4,13 @@ A demonstration of integrating Flow blockchain cross-VM functionality with FCL, 
 
 ![FCL + RainbowKit Integration Demo](./.github/screenshot.png)
 
+✨ Supercharge Your Apps with Cadence ✨
+
+- 🔗 **Seamless Cross-VM Integration** – Connect Flow and EVM wallets effortlessly.
+- 🔥 **Leverage Cadence's Power** – Enhance dApps with composable, atomic interactions.
+- 🚀 **Progressive Adoption** – Incrementally integrate Flow’s features without disrupting existing workflows.
+- ⚡ **Bundled Transactions** – Execute multiple operations in a single atomic transaction using FCL and Cadence, reducing gas costs and improving efficiency.
+
 ## Features
 
 - Connect to Flow and EVM wallets using RainbowKit
