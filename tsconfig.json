@@ -31,7 +31,6 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "fcl-js"
+    "node_modules"
   ]
 }
